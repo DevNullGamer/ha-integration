@@ -1,0 +1,13 @@
+{
+  "domain": "gaggimate",
+  "name": "GaggiMate",
+  "codeowners": ["@jwpieroen"],
+  "config_flow": true,
+  "dependencies": [],
+  "documentation": "https://github.com/jaapp/ha_gaggimate",
+  "integration_type": "device",
+  "iot_class": "local_push",
+  "issue_tracker": "https://github.com/jaapp/ha_gaggimate/issues",
+  "requirements": [],
+  "version": "1.0.0"
+}
