@@ -10,7 +10,10 @@ from homeassistant.components.sensor import (
 )
 from homeassistant.helpers.entity import EntityCategory
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.const import UnitOfTemperature
+from homeassistant.const import (
+    UnitOfTemperature,
+    UnitOfMass
+    )
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
@@ -30,7 +33,8 @@ from .const import (
     UNIQUE_ID_UPDATE_DISPLAY,
     UNIQUE_ID_UPDATE_CONTROLLER,
     UNIQUE_ID_LATEST_VERSION,
-    UNIQUE_ID_SCALE_CONNECTED
+    UNIQUE_ID_SCALE_CONNECTED,
+    UNIQUE_ID_CURRENT_WEIGHT
 )
 from .coordinator import GaggiMateCoordinator
 
@@ -56,6 +60,7 @@ async def async_setup_entry(
         GaggiMateControllerUpdateSensor(coordinator, entry),
         GaggiMateControllerVersionSensor(coordinator, entry),
         GaggiMateScaleConnected(coordinator, entry),
+        GaggiMateCurrentWeight(coordinator, entry),
     ]
 
     async_add_entities(entities)
@@ -106,6 +111,28 @@ class GaggiMateCurrentTemperatureSensor(GaggiMateEntity, SensorEntity):
         if self.coordinator.data is None:
             return None
         return self.coordinator.data.get("ct")
+
+class GaggiMateCurrentWeight(GaggiMateEntity, SensorEntity):
+    """Current weight from scale."""
+
+    _attr_device_class = SensorDeviceClass.WEIGHT
+    _attr_state_class = SensorStateClass.MEASUREMENT
+    _attr_native_unit_of_measurement = UnitOfMass.GRAMS
+    _attr_icon = "mdi:scale"
+
+    def __init__(self, coordinator: GaggiMateCoordinator, entry: ConfigEntry) -> None:
+        """Initialize the sensor."""
+        super().__init__(coordinator, entry)
+        self._attr_name = "Current Weight"
+        self._attr_unique_id = f"{coordinator.host}_{UNIQUE_ID_CURRENT_WEIGHT}"
+
+    @property
+    def native_value(self) -> float | None:
+        """Return the current weight."""
+        if self.coordinator.data is None:
+            return None
+        return self.coordinator.data.get("cw")
+
 
 
 class GaggiMateTargetTemperatureSensor(GaggiMateEntity, SensorEntity):

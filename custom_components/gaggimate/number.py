@@ -9,7 +9,10 @@ from homeassistant.const import UnitOfTemperature
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
-from .const import DOMAIN, UNIQUE_ID_TARGET_TEMP_SETPOINT
+from .const import (
+    DOMAIN,
+    UNIQUE_ID_TARGET_TEMP_SETPOINT
+    )
 from .coordinator import GaggiMateCoordinator
 from .sensor import GaggiMateEntity
 

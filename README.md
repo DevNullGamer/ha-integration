@@ -15,7 +15,8 @@ A minimal custom integration for controlling and monitoring a GaggiMate‑equipp
 - Latest firmware version (diagnostic)
 - Display update available (diagnostic)
 - Controller update available (diagnostic)
-- Scale connection status (diagnostic)
+- Scale connection status
+- Current weight
 
 
 **Controls / Services**
