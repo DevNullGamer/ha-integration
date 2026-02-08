@@ -247,7 +247,7 @@ class GaggiMateScaleConnected(GaggiMateEntity, SensorEntity):
     def __init__(self, coordinator: GaggiMateCoordinator, entry: ConfigEntry) -> None:
         """Initialize the sensor."""
         super().__init__(coordinator, entry)
-        self._attr_name = "Scale connection status"
+        self._attr_name = "Scale Connection"
         self._attr_unique_id = f"{coordinator.host}_{GaggiMateScaleConnected}"
 
     @property
