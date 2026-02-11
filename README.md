@@ -22,26 +22,33 @@ Control and monitor your GaggiMate-equipped espresso machine directly from Home 
 |--------|-------------|--------------|
 | Current Temperature | Live temperature reading from the machine | Temperature |
 | Target Temperature | Desired temperature target | Temperature |
-| Current Mode | Active machine mode (Standby, Brew, Steam, Hot Water, Grind) | - |
+| Current Pressure | Live pressure reading from the machine | Pressure |
+| Target Pressure | Desired pressure target | Pressure |
+| Pump Flow | Current pump flow rate | - |
+| Mode | Active machine mode (Standby, Brew, Steam, Hot Water, Grind) | - |
+| Status | Derived machine status (Idle, Brewing, Steaming, Grinding, Pouring Water) | - |
+| Process Phase | Current process phase label from the machine (e.g. infusion, brew, finished) | - |
 | Selected Profile | Currently active brewing profile | - |
+| Target Shot Weight | Target shot volume for the selected profile | Weight |
+| Shot Weight Progress | Current shot volume progress during extraction | Weight |
+| Scale Connection | BLE scale connection state (Connected/Disconnected) | - |
+| Current Weight | Live weight reading from scale | Weight |
 | Hardware Model | Controller hardware model information (diagnostic) | - |
 | Display Firmware Version | Current display firmware version (diagnostic) | - |
 | Controller Firmware Version | Current controller firmware version (diagnostic) | - |
-| Latest Firmware Version | Available firmware version (diagnostic) | - |
 | Display Update Available | Display firmware update status (diagnostic) | - |
 | Controller Update Available | Controller firmware update status (diagnostic) | - |
-| Scale Connection Status | BLE scale connection state | - |
-| Current Weight | Live weight reading from scale | Weight |
+| Latest Software Version | Latest available firmware version (diagnostic) | - |
 
 ### Controls
 | Entity | Type | Description |
 |--------|------|-------------|
 | Machine Active | Switch | Turn the machine on/off |
-| Mode Select | Select | Choose machine operating mode |
-| Profile Select | Select | Choose brewing profile |
-| Target Temperature | Number | Set desired temperature (adjustable range) |
+| Mode | Select | Choose machine operating mode |
+| Profile | Select | Choose brewing profile |
+| Target Temperature Setpoint | Number | Set desired temperature (0–160 °C) |
 | Start Brew | Button | Begin brewing operation |
-| Stop Brew | Button | End brewing operation |
+| Stop Brew | Button | Stop active process (brew or steam) |
 | Start Steam | Button | Begin steaming operation |
 | Flush | Button | Trigger flush cycle |
 
@@ -133,6 +140,42 @@ automation:
       - service: notify.mobile_app
         data:
           message: "☕ GaggiMate is ready!"
+```
+
+### Turbo Preheat: Faster Boiler & Portafilter Warm-Up
+
+Temporarily raises the target temperature to 120°C for 30 seconds, then restores the profile temperature. This pushes extra heat into the boiler and portafilter so everything reaches brewing temperature faster.
+
+```yaml
+script:
+  gaggimate_turbo_preheat:
+    alias: "GaggiMate Turbo Preheat"
+    icon: mdi:fire
+    description: "Temporarily boost setpoint to 120°C for 30s to preheat boiler and portafilter faster"
+    sequence:
+      - service: select.select_option
+        target:
+          entity_id: select.gaggimate_mode
+        data:
+          option: "Brew"
+      - wait_template: "{{ states('sensor.gaggimate_target_temperature') | float > 60 }}"
+        timeout: "00:00:15"
+        continue_on_timeout: false
+      - variables:
+          original_temp: "{{ states('sensor.gaggimate_target_temperature') | float }}"
+      - service: number.set_value
+        target:
+          entity_id: number.gaggimate_target_temperature_setpoint
+        data:
+          value: 120
+      - delay:
+          seconds: 30
+      - service: number.set_value
+        target:
+          entity_id: number.gaggimate_target_temperature_setpoint
+        data:
+          value: "{{ original_temp }}"
+    mode: single
 ```
 
 ## Troubleshooting
