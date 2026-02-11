@@ -217,7 +217,7 @@ script:
       - wait_template: >-
           {{ states('sensor.gaggimate_current_temperature') | float < 30 or
              states('sensor.gaggimate_current_pressure') | float > 5 }}
-        timeout: "00:10:00"
+        timeout: "00:02:00"
         continue_on_timeout: true
       - if:
           - condition: numeric_state
