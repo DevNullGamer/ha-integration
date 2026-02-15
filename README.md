@@ -124,15 +124,14 @@ data:
 Daily trim at midnight keeping the 5 newest shots:
 
 ```yaml
-automation:
-  - alias: "GaggiMate: Daily trim shot history"
-    trigger:
-      - platform: time
-        at: "00:00:00"
-    action:
-      - service: gaggimate.trim_shot_history
-        data:
-          max_shots: 10
+alias: "GaggiMate: Daily trim shot history"
+trigger:
+  - platform: time
+    at: "00:00:00"
+action:
+  - service: gaggimate.trim_shot_history
+    data:
+      max_shots: 10
 ```
 
 ## Automation Examples
@@ -140,51 +139,47 @@ automation:
 ### Basic Automation: Morning Warm-Up
 
 ```yaml
-automation:
-  - alias: "Start Espresso Machine in the Morning"
-    trigger:
-      - platform: time
-        at: "07:00:00"
-    condition:
-      - condition: time
-        weekday:
-          - mon
-          - tue
-          - wed
-          - thu
-          - fri
-    action:
-      - service: switch.turn_on
-        target:
-          entity_id: switch.gaggimate_machine_active
-      - service: select.select_option
-        target:
-          entity_id: select.gaggimate_mode
-        data:
-          option: "Brew"
+alias: "Start Espresso Machine in the Morning"
+trigger:
+  - platform: time
+    at: "07:00:00"
+condition:
+  - condition: time
+    weekday:
+      - mon
+      - tue
+      - wed
+      - thu
+      - fri
+action:
+  - service: switch.turn_on
+    target:
+      entity_id: switch.gaggimate_machine_active
+  - service: select.select_option
+    target:
+      entity_id: select.gaggimate_mode
+    data:
+      option: "Brew"
 ```
 
 ### Temperature-Based Alert
 
 ```yaml
-automation:
-  - alias: "Alert When Espresso Ready"
-    trigger:
-      - platform: numeric_state
-        entity_id: sensor.gaggimate_current_temperature
-        above: 86
-        for:
-          hours: 0
-          minutes: 10
-          seconds: 0
-    condition:
-      - condition: state
-        entity_id: select.gaggimate_mode
-        state: "Brew"
-    action:
-      - service: notify.mobile_app
-        data:
-          message: "☕ GaggiMate is ready!"
+alias: "Alert When Espresso Ready"
+trigger:
+  - platform: numeric_state
+    entity_id: sensor.gaggimate_current_temperature
+    above: 86
+    for:
+      minutes: 10
+condition:
+  - condition: state
+    entity_id: select.gaggimate_mode
+    state: "Brew"
+action:
+  - service: notify.mobile_app
+    data:
+      message: "☕ GaggiMate is ready!"
 ```
 
 ### Turbo Preheat: Faster Boiler & Portafilter Warm-Up
@@ -192,38 +187,36 @@ automation:
 Immediately raises the target temperature to 120°C, waits for the boiler to reach the original profile temperature, then holds at the boosted setpoint for an additional 30 seconds before restoring the profile temperature. This pushes extra heat into the boiler and portafilter so everything reaches brewing temperature faster.
 
 ```yaml
-script:
-  gaggimate_turbo_preheat:
-    alias: "GaggiMate Turbo Preheat"
-    icon: mdi:fire
-    description: "Bring the boiler and portafilter up to a _stable_ temp faster. Boost setpoint to 120°C until profile temp reached, hold 30s, then restore profile temp"
-    sequence:
-      - service: select.select_option
-        target:
-          entity_id: select.gaggimate_mode
-        data:
-          option: "Brew"
-      - wait_template: "{{ states('sensor.gaggimate_target_temperature') | float > 60 }}"
-        timeout: "00:00:15"
-        continue_on_timeout: false
-      - variables:
-          original_temp: "{{ states('sensor.gaggimate_target_temperature') | float }}"
-      - service: number.set_value
-        target:
-          entity_id: number.gaggimate_target_temperature_setpoint
-        data:
-          value: 120
-      - wait_template: "{{ states('sensor.gaggimate_current_temperature') | float >= original_temp }}"
-        timeout: "00:05:00"
-        continue_on_timeout: true
-      - delay:
-          seconds: 30
-      - service: number.set_value
-        target:
-          entity_id: number.gaggimate_target_temperature_setpoint
-        data:
-          value: "{{ original_temp }}"
-    mode: single
+alias: "GaggiMate Turbo Preheat"
+icon: mdi:fire
+description: "Bring the boiler and portafilter up to a stable temp faster. Boost setpoint to 120°C until profile temp reached, hold 30s, then restore profile temp"
+sequence:
+  - service: select.select_option
+    target:
+      entity_id: select.gaggimate_mode
+    data:
+      option: "Brew"
+  - wait_template: "{{ states('sensor.gaggimate_target_temperature') | float > 60 }}"
+    timeout: "00:00:15"
+    continue_on_timeout: false
+  - variables:
+      original_temp: "{{ states('sensor.gaggimate_target_temperature') | float }}"
+  - service: number.set_value
+    target:
+      entity_id: number.gaggimate_target_temperature_setpoint
+    data:
+      value: 120
+  - wait_template: "{{ states('sensor.gaggimate_current_temperature') | float >= original_temp }}"
+    timeout: "00:05:00"
+    continue_on_timeout: true
+  - delay:
+      seconds: 30
+  - service: number.set_value
+    target:
+      entity_id: number.gaggimate_target_temperature_setpoint
+    data:
+      value: "{{ original_temp }}"
+mode: single
 ```
 
 ### Cool Down Machine
@@ -233,77 +226,75 @@ Switches to Hot Water mode with a 25°C target and dispenses water through the s
 If the pressure rises above 5 bar for 10 seconds after the initial release (indicating the steam wand has been closed), the script aborts, restores the original temperature, and switches to Standby.
 
 ```yaml
-script:
-  gaggimate_cooldown:
-    alias: "GaggiMate Cool Down Machine"
-    icon: mdi:snowflake
-    description: "Cool the machine down by dispensing hot water until temperature is below 30°C. Aborts if steam wand is closed (pressure > 5 bar for 10s)."
-    sequence:
-      - service: select.select_option
-        target:
-          entity_id: select.gaggimate_mode
-        data:
-          option: "Hot Water"
-      - wait_template: "{{ states('sensor.gaggimate_mode') == 'Hot Water' }}"
-        timeout: "00:00:10"
-        continue_on_timeout: false
-      - variables:
-          original_water_temp: "{{ states('sensor.gaggimate_target_temperature') | float }}"
-      - service: number.set_value
-        target:
-          entity_id: number.gaggimate_target_temperature_setpoint
-        data:
-          value: 25
-      - service: button.press
-        target:
-          entity_id: button.gaggimate_start_brew
+alias: "GaggiMate Cool Down Machine"
+icon: mdi:snowflake
+description: "Cool the machine down by dispensing hot water until temperature is below 30°C. Aborts if steam wand is closed (pressure > 5 bar for 10s)."
+sequence:
+  - service: select.select_option
+    target:
+      entity_id: select.gaggimate_mode
+    data:
+      option: "Hot Water"
+  - wait_template: "{{ states('sensor.gaggimate_mode') == 'Hot Water' }}"
+    timeout: "00:00:10"
+    continue_on_timeout: false
+  - variables:
+      original_water_temp: "{{ states('sensor.gaggimate_target_temperature') | float }}"
+  - service: number.set_value
+    target:
+      entity_id: number.gaggimate_target_temperature_setpoint
+    data:
+      value: 25
+  - service: button.press
+    target:
+      entity_id: button.gaggimate_start_brew
+  - delay:
+      seconds: 5
+  - wait_template: >-
+      {{ states('sensor.gaggimate_current_temperature') | float < 30 or
+         states('sensor.gaggimate_current_pressure') | float > 5 }}
+    timeout: "00:02:00"
+    continue_on_timeout: true
+  - if:
+      - condition: numeric_state
+        entity_id: sensor.gaggimate_current_pressure
+        above: 5
+    then:
       - delay:
-          seconds: 5
-      - wait_template: >-
-          {{ states('sensor.gaggimate_current_temperature') | float < 30 or
-             states('sensor.gaggimate_current_pressure') | float > 5 }}
-        timeout: "00:02:00"
-        continue_on_timeout: true
+          seconds: 10
       - if:
           - condition: numeric_state
             entity_id: sensor.gaggimate_current_pressure
             above: 5
         then:
-          - delay:
-              seconds: 10
-          - if:
-              - condition: numeric_state
-                entity_id: sensor.gaggimate_current_pressure
-                above: 5
-            then:
-              - service: button.press
-                target:
-                  entity_id: button.gaggimate_stop_brew
-              - service: number.set_value
-                target:
-                  entity_id: number.gaggimate_target_temperature_setpoint
-                data:
-                  value: "{{ original_water_temp }}"
-              - service: select.select_option
-                target:
-                  entity_id: select.gaggimate_mode
-                data:
-                  option: "Standby"
-              - stop: "Aborted: steam wand appears closed (pressure > 5 bar)"
-      - service: button.press
-        target:
-          entity_id: button.gaggimate_stop_brew
-      - service: number.set_value
-        target:
-          entity_id: number.gaggimate_target_temperature_setpoint
-        data:
-          value: "{{ original_water_temp }}"
-      - service: select.select_option
-        target:
-          entity_id: select.gaggimate_mode
-        data:
-          option: "Standby"
-    mode: single
+          - service: button.press
+            target:
+              entity_id: button.gaggimate_stop_brew
+          - service: number.set_value
+            target:
+              entity_id: number.gaggimate_target_temperature_setpoint
+            data:
+              value: "{{ original_water_temp }}"
+          - service: select.select_option
+            target:
+              entity_id: select.gaggimate_mode
+            data:
+              option: "Standby"
+          - stop: "Aborted: steam wand appears closed (pressure > 5 bar)"
+  - service: button.press
+    target:
+      entity_id: button.gaggimate_stop_brew
+  - service: number.set_value
+    target:
+      entity_id: number.gaggimate_target_temperature_setpoint
+    data:
+      value: "{{ original_water_temp }}"
+  - service: select.select_option
+    target:
+      entity_id: select.gaggimate_mode
+    data:
+      option: "Standby"
+mode: single
 ```
 
 ### Cooldown to Brew Temp
@@ -311,41 +302,39 @@ script:
 After steaming, the boiler is well above brew temperature. This script switches to Brew mode, reads the profile's target temperature, and repeatedly triggers flush cycles through the group head until the boiler cools to within 10°C of the brew target. Remove the portafilter and flush to the drip tray or a container.
 
 ```yaml
-script:
-  gaggimate_cooling_flush:
-    alias: "GaggiMate Cooldown to Brew Temp"
-    icon: mdi:coffee-to-go
-    description: "Cool the boiler from steam temp back to brew temp by repeatedly flushing through the group head until brew temperature is reached."
-    sequence:
-      - service: select.select_option
-        target:
-          entity_id: select.gaggimate_mode
-        data:
-          option: "Brew"
-      - wait_template: "{{ states('sensor.gaggimate_mode') == 'Brew' }}"
-        timeout: "00:00:10"
-        continue_on_timeout: false
-      - wait_template: "{{ states('sensor.gaggimate_target_temperature') | float > 60 }}"
-        timeout: "00:00:15"
-        continue_on_timeout: false
-      - variables:
-          target_brew_temp: "{{ states('sensor.gaggimate_target_temperature') | float }}"
-      - repeat:
-          sequence:
-            - service: button.press
-              target:
-                entity_id: button.gaggimate_flush
-            - delay:
-                seconds: 3
-            - wait_template: "{{ states('sensor.gaggimate_status') == 'Idle' }}"
-              timeout: "00:00:30"
-              continue_on_timeout: true
-          until:
-            - condition: template
-              value_template: >-
-                {{ states('sensor.gaggimate_current_temperature') | float <= target_brew_temp + 10
-                   or repeat.index >= 10 }}
-    mode: single
+alias: "GaggiMate Cooldown to Brew Temp"
+icon: mdi:coffee-to-go
+description: "Cool the boiler from steam temp back to brew temp by repeatedly flushing through the group head until brew temperature is reached."
+sequence:
+  - service: select.select_option
+    target:
+      entity_id: select.gaggimate_mode
+    data:
+      option: "Brew"
+  - wait_template: "{{ states('sensor.gaggimate_mode') == 'Brew' }}"
+    timeout: "00:00:10"
+    continue_on_timeout: false
+  - wait_template: "{{ states('sensor.gaggimate_target_temperature') | float > 60 }}"
+    timeout: "00:00:15"
+    continue_on_timeout: false
+  - variables:
+      target_brew_temp: "{{ states('sensor.gaggimate_target_temperature') | float }}"
+  - repeat:
+      sequence:
+        - service: button.press
+          target:
+            entity_id: button.gaggimate_flush
+        - delay:
+            seconds: 3
+        - wait_template: "{{ states('sensor.gaggimate_status') == 'Idle' }}"
+          timeout: "00:00:30"
+          continue_on_timeout: true
+      until:
+        - condition: template
+          value_template: >-
+            {{ states('sensor.gaggimate_current_temperature') | float <= target_brew_temp + 10
+               or repeat.index >= 10 }}
+mode: single
 ```
 
 ## Example Dashboard
