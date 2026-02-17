@@ -59,7 +59,6 @@ class GaggiMateSensorEntityDescription(SensorEntityDescription):
     available_fn: Callable[[dict[str, Any], GaggiMateCoordinator], bool] | None = None
     icon_fn: Callable[[dict[str, Any], GaggiMateCoordinator], str] | None = None
     extra_attrs_fn: Callable[[dict[str, Any], GaggiMateCoordinator], dict[str, Any]] | None = None
-    native_precision: int | None = None
 
 
 async def async_setup_entry(
@@ -119,8 +118,6 @@ class GaggiMateSensor(GaggiMateEntity, SensorEntity):
         self.entity_description = description
         self._attr_unique_id = f"{coordinator.host}_{description.key}"
         self._attr_name = description.name
-        if description.native_precision is not None:
-            self._attr_native_precision = description.native_precision
 
     @property
     def available(self) -> bool:
@@ -218,6 +215,16 @@ def _get_mode_icon(data: dict[str, Any]) -> str:
         return "mdi:coffee-maker"
 
 
+def _quantize(value: Any, decimals: int) -> float | None:
+    """Round numeric values to a fixed precision; return None on invalid input."""
+    if value is None:
+        return None
+    try:
+        return round(float(value), decimals)
+    except (TypeError, ValueError):
+        return None
+
+
 SENSORS: tuple[GaggiMateSensorEntityDescription, ...] = (
     GaggiMateSensorEntityDescription(
         key=UNIQUE_ID_CURRENT_TEMP,
@@ -226,8 +233,8 @@ SENSORS: tuple[GaggiMateSensorEntityDescription, ...] = (
         state_class=SensorStateClass.MEASUREMENT,
         native_unit_of_measurement=UnitOfTemperature.CELSIUS,
         icon="mdi:thermometer",
-        native_precision=1,
-        value_fn=lambda data, _: None if data.get("ct") is None else float(data.get("ct")),
+        suggested_display_precision=1,
+        value_fn=lambda data, _: _quantize(data.get("ct"), 1),
     ),
     GaggiMateSensorEntityDescription(
         key=UNIQUE_ID_TARGET_TEMP,
@@ -236,8 +243,8 @@ SENSORS: tuple[GaggiMateSensorEntityDescription, ...] = (
         state_class=SensorStateClass.MEASUREMENT,
         native_unit_of_measurement=UnitOfTemperature.CELSIUS,
         icon="mdi:thermometer-auto",
-        native_precision=1,
-        value_fn=lambda data, _: None if data.get("tt") is None else float(data.get("tt")),
+        suggested_display_precision=1,
+        value_fn=lambda data, _: _quantize(data.get("tt"), 1),
     ),
     GaggiMateSensorEntityDescription(
         key=UNIQUE_ID_STATUS,
@@ -280,10 +287,10 @@ SENSORS: tuple[GaggiMateSensorEntityDescription, ...] = (
         state_class=SensorStateClass.MEASUREMENT,
         native_unit_of_measurement=UnitOfMass.GRAMS,
         icon="mdi:scale",
-        native_precision=1,
+        suggested_display_precision=1,
         value_fn=lambda data, _: None
         if not data.get("bc") or data.get("cw") is None
-        else float(data.get("cw")),
+        else _quantize(data.get("cw"), 1),
     ),
     GaggiMateSensorEntityDescription(
         key=UNIQUE_ID_CURRENT_PRESSURE,
@@ -292,8 +299,8 @@ SENSORS: tuple[GaggiMateSensorEntityDescription, ...] = (
         state_class=SensorStateClass.MEASUREMENT,
         native_unit_of_measurement=UnitOfPressure.BAR,
         icon="mdi:gauge",
-        native_precision=2,
-        value_fn=lambda data, _: None if data.get("pr") is None else float(data.get("pr")),
+        suggested_display_precision=2,
+        value_fn=lambda data, _: _quantize(data.get("pr"), 2),
     ),
     GaggiMateSensorEntityDescription(
         key=UNIQUE_ID_TARGET_PRESSURE,
@@ -302,8 +309,8 @@ SENSORS: tuple[GaggiMateSensorEntityDescription, ...] = (
         state_class=SensorStateClass.MEASUREMENT,
         native_unit_of_measurement=UnitOfPressure.BAR,
         icon="mdi:gauge-full",
-        native_precision=2,
-        value_fn=lambda data, _: None if data.get("pt") is None else float(data.get("pt")),
+        suggested_display_precision=2,
+        value_fn=lambda data, _: _quantize(data.get("pt"), 2),
     ),
     GaggiMateSensorEntityDescription(
         key=UNIQUE_ID_PUMP_FLOW,
@@ -311,8 +318,8 @@ SENSORS: tuple[GaggiMateSensorEntityDescription, ...] = (
         state_class=SensorStateClass.MEASUREMENT,
         native_unit_of_measurement="mL/s",
         icon="mdi:water-pump",
-        native_precision=1,
-        value_fn=lambda data, _: None if data.get("fl") is None else float(data.get("fl")),
+        suggested_display_precision=1,
+        value_fn=lambda data, _: _quantize(data.get("fl"), 1),
     ),
     GaggiMateSensorEntityDescription(
         key=UNIQUE_ID_TARGET_VOLUME,
@@ -321,8 +328,8 @@ SENSORS: tuple[GaggiMateSensorEntityDescription, ...] = (
         state_class=SensorStateClass.MEASUREMENT,
         native_unit_of_measurement=UnitOfMass.GRAMS,
         icon="mdi:cup-water",
-        native_precision=1,
-        value_fn=lambda data, _: None if data.get("tw") is None else float(data.get("tw")),
+        suggested_display_precision=1,
+        value_fn=lambda data, _: _quantize(data.get("tw"), 1),
     ),
     GaggiMateSensorEntityDescription(
         key=UNIQUE_ID_SHOT_VOLUME_PROGRESS,
@@ -334,9 +341,9 @@ SENSORS: tuple[GaggiMateSensorEntityDescription, ...] = (
         value_fn=lambda data, _: (
             None
             if (process := data.get("process") or {}).get("tt") != "volumetric"
-            else (None if process.get("pp") is None else float(process.get("pp")))
+            else _quantize(process.get("pp"), 1)
         ),
-        native_precision=1,
+        suggested_display_precision=1,
     ),
     GaggiMateSensorEntityDescription(
         key=UNIQUE_ID_HW_MODEL,
