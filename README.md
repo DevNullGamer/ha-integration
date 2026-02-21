@@ -164,6 +164,8 @@ action:
 
 ### Temperature-Based Alert
 
+**Goal:** Remind you that your espresso machine has finished preheating. This automation sends a notification once the boiler temperature has been stable above your target for a set period, so you know it's ready to brew.
+
 ```yaml
 alias: "Alert When Espresso Ready"
 trigger:
