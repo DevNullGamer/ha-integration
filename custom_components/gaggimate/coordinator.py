@@ -10,7 +10,7 @@ from typing import Any
 from contextlib import suppress
 
 import aiohttp
-from homeassistant.core import HomeAssistant, callback
+from homeassistant.core import HomeAssistant
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
 from .const import (
@@ -125,7 +125,9 @@ class GaggiMateCoordinator(DataUpdateCoordinator):
 
             # If already connected, do nothing
             if self._ws and not self._ws.closed:
-                return
+                with suppress(Exception):
+                    await self._ws.close()
+                self._ws = None
 
             # Kill stale listener if present
             if self._listen_task and not self._listen_task.done():
@@ -158,6 +160,10 @@ class GaggiMateCoordinator(DataUpdateCoordinator):
 
             except Exception as err:
                 _LOGGER.error("Failed to connect to GaggiMate: %s", err)
+
+                if not self._shutting_down:
+                    await self._schedule_reconnect()
+
                 raise UpdateFailed(f"Failed to connect: {err}") from err
 
     async def _listen(self) -> None:
@@ -177,6 +183,17 @@ class GaggiMateCoordinator(DataUpdateCoordinator):
         except Exception as err:
             _LOGGER.error("WebSocket listen loop error: %s", err)
         finally:
+            if self._ws:
+                with suppress(Exception):
+                    await self._ws.close()
+                self._ws = None
+
+            # optional but strongly recommended
+            for future in self._pending_requests.values():
+                if not future.done():
+                    future.set_exception(UpdateFailed("Connection lost"))
+            self._pending_requests.clear()
+
             if not self._shutting_down:
                 await self._schedule_reconnect()
 
@@ -187,6 +204,7 @@ class GaggiMateCoordinator(DataUpdateCoordinator):
             msg_type = message.get("tp")
 
             if msg_type == MSG_TYPE_STATUS:
+                self._reconnect_attempt = 0
                 self._last_status_time = datetime.now()
                 self.async_set_updated_data(message)
                 return
@@ -228,7 +246,7 @@ class GaggiMateCoordinator(DataUpdateCoordinator):
         self._reconnect_task = asyncio.create_task(self._reconnect_loop())
 
 
-        async def _reconnect_loop(self) -> None:
+    async def _reconnect_loop(self) -> None:
         """Reconnect loop with incremental backoff."""
         try:
             while not self._shutting_down:
@@ -262,7 +280,7 @@ class GaggiMateCoordinator(DataUpdateCoordinator):
 
     async def _check_availability(self) -> None:
         """Monitor status updates and reconnect if stale."""
-        while True:
+        while not self._shutting_down:
             try:
                 await asyncio.sleep(1)
 
@@ -293,6 +311,7 @@ class GaggiMateCoordinator(DataUpdateCoordinator):
             await self._ws.send_json(message)
             _LOGGER.debug("Sent message: %s", message)
         except Exception as err:
+            await self._schedule_reconnect()
             raise UpdateFailed(f"Failed to send message: {err}") from err
 
     async def _request(self, message: dict[str, Any]) -> dict[str, Any]:
