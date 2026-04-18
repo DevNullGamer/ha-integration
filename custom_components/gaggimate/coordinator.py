@@ -158,7 +158,6 @@ class GaggiMateCoordinator(DataUpdateCoordinator):
 
             except Exception as err:
                 _LOGGER.error("Failed to connect to GaggiMate: %s", err)
-                await self._schedule_reconnect()
                 raise UpdateFailed(f"Failed to connect: {err}") from err
 
     async def _listen(self) -> None:
@@ -219,44 +218,47 @@ class GaggiMateCoordinator(DataUpdateCoordinator):
             _LOGGER.error("Invalid WebSocket JSON: %s", err)
 
     async def _schedule_reconnect(self) -> None:
-        """Schedule a reconnect if not already scheduled."""
+        """Ensure a reconnect loop is running."""
         if self._shutting_down:
             return
 
-        # Don't reconnect if socket is healthy
-        if self._ws and not self._ws.closed:
-            return
-
-        # Prevent multiple reconnect tasks
         if self._reconnect_task and not self._reconnect_task.done():
             return
 
-        delay_index = min(self._reconnect_attempt, len(WS_RECONNECT_DELAYS) - 1)
-        delay = WS_RECONNECT_DELAYS[delay_index]
+        self._reconnect_task = asyncio.create_task(self._reconnect_loop())
 
-        _LOGGER.warning(
-            "Scheduling reconnect in %s seconds (attempt %s)",
-            delay,
-            self._reconnect_attempt + 1,
-        )
 
-        self._reconnect_task = asyncio.create_task(self._reconnect_after_delay(delay))
-
-    async def _reconnect_after_delay(self, delay: int) -> None:
-        """Reconnect after delay."""
+        async def _reconnect_loop(self) -> None:
+        """Reconnect loop with incremental backoff."""
         try:
-            await asyncio.sleep(delay)
-            self._reconnect_attempt += 1
-            await self._connect()
+            while not self._shutting_down:
+                delay_index = min(self._reconnect_attempt, len(WS_RECONNECT_DELAYS) - 1)
+                delay = WS_RECONNECT_DELAYS[delay_index]
+
+                _LOGGER.warning(
+                    "Reconnect attempt %s in %s seconds",
+                    self._reconnect_attempt + 1,
+                    delay,
+                )
+
+                await asyncio.sleep(delay)
+
+                try:
+                    await self._connect()
+
+                    # SUCCESS → reset and exit loop
+                    self._reconnect_attempt = 0
+                    _LOGGER.info("Reconnect successful")
+                    return
+
+                except Exception as err:
+                    self._reconnect_attempt += 1
+                    _LOGGER.error("Reconnect failed: %s", err)
+
         except asyncio.CancelledError:
             raise
-        except Exception as err:
-            _LOGGER.error("Reconnect error: %s", err)
-            self._reconnect_task = None
-            await self._schedule_reconnect()
         finally:
-            if self._reconnect_task is asyncio.current_task():
-                self._reconnect_task = None
+            self._reconnect_task = None
 
     async def _check_availability(self) -> None:
         """Monitor status updates and reconnect if stale."""
@@ -285,6 +287,7 @@ class GaggiMateCoordinator(DataUpdateCoordinator):
     async def send_message(self, message: dict[str, Any]) -> None:
         """Send message to the device."""
         if self._ws is None or self._ws.closed:
+            await self._schedule_reconnect()
             raise UpdateFailed("WebSocket not connected")
         try:
             await self._ws.send_json(message)
