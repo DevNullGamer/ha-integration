@@ -78,6 +78,7 @@ class GaggiMateCoordinator(DataUpdateCoordinator):
         if self._shutting_down:
             return
 
+        _LOGGER.warning("GaggiMate _connect() called")
         if self._session is None:
             self._session = aiohttp.ClientSession()
 
@@ -119,7 +120,10 @@ class GaggiMateCoordinator(DataUpdateCoordinator):
 
     async def _connect(self) -> None:
         """Connect to WebSocket, ensuring only one connection attempt at a time."""
+        _LOGGER.warning(">>> GAGGIMATE CONNECT ENTRY <<<")
+        _LOGGER.warning("ENTER _CONNECT BEFORE LOCK")
         async with self._connect_lock:
+            _LOGGER.warning("ENTERED CONNECT LOCK")
             if self._shutting_down:
                 return
 
@@ -161,10 +165,9 @@ class GaggiMateCoordinator(DataUpdateCoordinator):
             except Exception as err:
                 _LOGGER.error("Failed to connect to GaggiMate: %s", err)
 
-                if not self._shutting_down:
-                    await self._schedule_reconnect()
-
-                raise UpdateFailed(f"Failed to connect: {err}") from err
+                # DO NOT trigger reconnect from inside locked context
+                # just let caller handle it
+                raise UpdateFailed(f"Failed to connect: {err}") from errr
 
     async def _listen(self) -> None:
         """Listen for messages from the WebSocket."""
