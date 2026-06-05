@@ -24,6 +24,19 @@
     }
   }
   ,
+  "options": {
+    "step": {
+      "init": {
+        "title": "GaggiMate Options",
+        "data": {
+          "temperature_unit": "Temperature Unit"
+        },
+        "data_description": {
+          "temperature_unit": "Choose Celsius (C) or Fahrenheit (F) for temperature display."
+        }
+      }
+    }
+  },
   "services": {
     "trim_shot_history": {
       "name": "Trim shot history",
