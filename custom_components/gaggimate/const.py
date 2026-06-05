@@ -8,6 +8,8 @@ DOMAIN = "gaggimate"
 # Default configuration values
 DEFAULT_PORT = 80
 DEFAULT_SCAN_INTERVAL = 1  # seconds
+CONF_TEMPERATURE_UNIT = "temperature_unit"
+DEFAULT_TEMPERATURE_UNIT = "C"  # "C" = Celsius, "F" = Fahrenheit
 
 # WebSocket configuration
 WS_CONNECT_TIMEOUT = 10  # seconds

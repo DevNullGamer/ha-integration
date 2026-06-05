@@ -19,6 +19,19 @@
     }
   }
   ,
+  "options": {
+    "step": {
+      "init": {
+        "title": "GaggiMate indstillinger",
+        "data": {
+          "temperature_unit": "Temperaturenhed"
+        },
+        "data_description": {
+          "temperature_unit": "Vælg Celsius (C) eller Fahrenheit (F) til visning af temperatur."
+        }
+      }
+    }
+  },
   "services": {
     "trim_shot_history": {
       "name": "Trim skudhistorik",

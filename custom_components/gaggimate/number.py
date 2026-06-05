@@ -17,7 +17,7 @@ from homeassistant.const import UnitOfTemperature
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
-from .const import DOMAIN, UNIQUE_ID_TARGET_TEMP_SETPOINT
+from .const import DOMAIN, UNIQUE_ID_TARGET_TEMP_SETPOINT, CONF_TEMPERATURE_UNIT
 from .coordinator import GaggiMateCoordinator
 from .sensor import GaggiMateEntity
 
@@ -25,6 +25,8 @@ _LOGGER = logging.getLogger(__name__)
 
 MIN_TEMP_C = 0
 MAX_TEMP_C = 160
+MIN_TEMP_F = 32
+MAX_TEMP_F = 320
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -83,15 +85,37 @@ class GaggiMateNumber(GaggiMateEntity, NumberEntity):
         self._attr_name = description.name
 
     @property
+    def native_unit_of_measurement(self) -> str:
+        unit = self._entry.options.get(CONF_TEMPERATURE_UNIT, "C")
+        return UnitOfTemperature.FAHRENHEIT if unit == "F" else UnitOfTemperature.CELSIUS
+
+    @property
+    def native_min_value(self) -> float:
+        unit = self._entry.options.get(CONF_TEMPERATURE_UNIT, "C")
+        return float(MIN_TEMP_F) if unit == "F" else float(MIN_TEMP_C)
+
+    @property
+    def native_max_value(self) -> float:
+        unit = self._entry.options.get(CONF_TEMPERATURE_UNIT, "C")
+        return float(MAX_TEMP_F) if unit == "F" else float(MAX_TEMP_C)
+
+    @property
     def native_value(self) -> float | None:
-        """Return the current value."""
         data = self.coordinator.data or {}
-        return self.entity_description.value_fn(data, self.coordinator)
+        value_c = self.entity_description.value_fn(data, self.coordinator)
+        if value_c is None:
+            return None
+        unit = self._entry.options.get(CONF_TEMPERATURE_UNIT, "C")
+        if unit == "F":
+            return round(value_c * 9 / 5 + 32, 1)
+        return value_c
 
     async def async_set_native_value(self, value: float) -> None:
         """Set new value."""
+        unit = self._entry.options.get(CONF_TEMPERATURE_UNIT, "C")
+        value_c = (value - 32) * 5 / 9 if unit == "F" else value
         try:
-            await self.entity_description.set_value_fn(self.coordinator, value)
+            await self.entity_description.set_value_fn(self.coordinator, value_c)
             _LOGGER.debug("Set %s to %s", self.entity_description.key, value)
         except Exception as err:  # noqa: BLE001
             _LOGGER.error("Failed to set %s: %s", self.entity_description.key, err)

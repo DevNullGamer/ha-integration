@@ -23,6 +23,19 @@
       "cannot_connect": "Cannot connect to discovered device."
     }
   },
+  "options": {
+    "step": {
+      "init": {
+        "title": "GaggiMate Options",
+        "data": {
+          "temperature_unit": "Temperature Unit"
+        },
+        "data_description": {
+          "temperature_unit": "Choose Celsius (C) or Fahrenheit (F) for temperature display."
+        }
+      }
+    }
+  },
   "entity": {
     "sensor": {
       "current_temperature": {

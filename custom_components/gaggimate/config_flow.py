@@ -10,11 +10,11 @@ import voluptuous as vol
 from homeassistant import config_entries
 from homeassistant.components import zeroconf
 from homeassistant.const import CONF_HOST, CONF_PORT
-from homeassistant.core import HomeAssistant
+from homeassistant.core import HomeAssistant, callback
 from homeassistant.data_entry_flow import FlowResult
 from homeassistant.helpers import aiohttp_client
 
-from .const import DEFAULT_PORT, DOMAIN, WS_CONNECT_TIMEOUT
+from .const import DEFAULT_PORT, DOMAIN, WS_CONNECT_TIMEOUT, CONF_TEMPERATURE_UNIT, DEFAULT_TEMPERATURE_UNIT
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -73,6 +73,14 @@ class GaggiMateConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     """Handle a config flow for GaggiMate."""
 
     VERSION = 1
+
+    @staticmethod
+    @callback
+    def async_get_options_flow(
+        config_entry: config_entries.ConfigEntry,
+    ) -> "GaggiMateOptionsFlowHandler":
+        """Return the options flow handler."""
+        return GaggiMateOptionsFlowHandler(config_entry)
 
     def __init__(self) -> None:
         """Initialize the config flow."""
@@ -165,3 +173,29 @@ class GaggiMateConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
 class CannotConnect(Exception):
     """Error to indicate we cannot connect."""
+
+
+class GaggiMateOptionsFlowHandler(config_entries.OptionsFlow):
+    """Handle options for GaggiMate."""
+
+    async def async_step_init(
+        self, user_input: dict[str, Any] | None = None
+    ) -> FlowResult:
+        """Manage GaggiMate options."""
+        if user_input is not None:
+            return self.async_create_entry(data=user_input)
+
+        current_unit = self.config_entry.options.get(
+            CONF_TEMPERATURE_UNIT, DEFAULT_TEMPERATURE_UNIT
+        )
+
+        return self.async_show_form(
+            step_id="init",
+            data_schema=vol.Schema(
+                {
+                    vol.Required(CONF_TEMPERATURE_UNIT, default=current_unit): vol.In(
+                        ["C", "F"]
+                    ),
+                }
+            ),
+        )

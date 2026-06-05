@@ -20,6 +20,7 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .const import (
+    CONF_TEMPERATURE_UNIT,
     DOMAIN,
     MODE_ICONS,
     MODE_NAMES,
@@ -130,10 +131,25 @@ class GaggiMateSensor(GaggiMateEntity, SensorEntity):
         return True
 
     @property
+    def native_unit_of_measurement(self) -> str | None:
+        if self.entity_description.device_class == SensorDeviceClass.TEMPERATURE:
+            unit = self._entry.options.get(CONF_TEMPERATURE_UNIT, "C")
+            return UnitOfTemperature.FAHRENHEIT if unit == "F" else UnitOfTemperature.CELSIUS
+        return self.entity_description.native_unit_of_measurement
+
+    @property
     def native_value(self):
         """Return the current value."""
         data = self.coordinator.data or {}
-        return self.entity_description.value_fn(data, self.coordinator)
+        value = self.entity_description.value_fn(data, self.coordinator)
+        if (
+            self.entity_description.device_class == SensorDeviceClass.TEMPERATURE
+            and value is not None
+        ):
+            unit = self._entry.options.get(CONF_TEMPERATURE_UNIT, "C")
+            if unit == "F":
+                return round(float(value) * 9 / 5 + 32, 1)
+        return value
 
     @property
     def icon(self) -> str | None:

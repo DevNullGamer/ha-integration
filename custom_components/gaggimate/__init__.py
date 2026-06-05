@@ -56,6 +56,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     hass.data[DOMAIN][entry.entry_id] = coordinator
 
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
+    entry.async_on_unload(entry.add_update_listener(entry.async_reload))
 
     async def _async_trim_shot_history(call: ServiceCall) -> None:
         """Trim shot history on all configured devices, keeping only newest max_shots entries each."""
